@@ -6,8 +6,11 @@ Usage: ./replica_sudos.sh [OPTIONS...]
 Change Types:
 
 -u USER         User with admin privileges.
+
 -S SERVERS      file with the servers to apply.
+
 -s SUDOS        Comma separated sudo groups list. If this parameter is not specified all files located on /etc/sudoers.d will be processed
+
 
 Examples:
 
