@@ -43,6 +43,15 @@ echo "${bold} ${0} -u user -S servers_list.txt -s monteam,dbateam,unixteam${none
 echo ""
 }
 
+function errors_in_log () {
+local LOGFILE=$1
+grep -i error ${LOGFILE}
+if [[ $? -eq 0 ]] 
+then 
+	echo $(tput bold) "S'han produït ERRORS en la execució, reviseu el log ${LOGFILE}" $(tput sgr0)
+fi 
+}
+
 function create_tar_file () {
 local SUDOS="$@"
 if [[ $EUID -ne 0 ]]
@@ -64,7 +73,10 @@ if [[ $? -eq 0 ]]; then return 0; else return 1;fi
 
 function extract_tar () {
 ${SUDO} /bin/tar -xPvf /tmp/sudoers_file.tar 
+if [[ $? -eq 0 ]]; then return 0; else return 1;fi
 ${SUDO} /bin/rm /tmp/sudoers_file.tar
+sudo -l -U rcarbone
+if [[ $? -eq 0 ]]; then return 0; else return 1;fi
 }
 
 
@@ -72,8 +84,12 @@ function ssh_extract_tar () {
 local USER=$1
 local SERVER=$2
 local SUDO=$3
-ssh -ttt ${USER}@${SERVER} "$(declare -p SUDO; declare -f extract_tar); extract_tar"
-if [ $? -eq 0 ]; then return 0; else return 1; fi
+if EXTRACT=$(ssh -ttt ${USER}@${SERVER} "$(declare -p SUDO; declare -f extract_tar); extract_tar");
+then 
+	return 0
+else
+	return 1
+fi
 }
 
 while getopts ":u:S:s:" option; do
@@ -140,7 +156,7 @@ if [[ -z "${SUDOS}" ]]
 then
 	SUDOS=$(${SUDO} ls /etc/sudoers.d)
 fi
-DATE=$(date +"%Y-%m-%d")
+DATE=$(date +"%Y-%m-%d-%H%M%S")
 LOGFILE=$0.${DATE}.log
 echo ${USER}
 echo ${SERVERS}
@@ -149,9 +165,24 @@ echo ${SUDOS[*]}
 create_tar_file "${SUDOS[*]}" 
 for SERVER in $(cat ${SERVERS})
 do
-	if copy_tar_file ${USER} ${SERVER}; then echo "tar file copied on ${SERVER}" >> ${LOGFILE}; else "Error copying tar file on ${SERVER}" >> ${LOGFILE}; fi
-	if ssh_extract_tar ${USER} ${SERVER} ${SUDO}; then echo "tar file extracted succesfully on ${SERVER}" >> ${LOGFILE}; else "Error extracting tar file on ${SERVER}" >> ${LOGFILE}; fi 
+	echo "######################################### ${SERVER} ######################################" >> ${LOGFILE}
+	if copy_tar_file ${USER} ${SERVER}
+	then 
+		echo "tar file copied on ${SERVER}" >> ${LOGFILE} 
+	else 
+		echo "${bold}ERROR${none}copying tar file on ${SERVER}" >> ${LOGFILE} 
+		errors_in_log ${LOGFILE} 
+	fi
+	if ssh_extract_tar ${USER} ${SERVER} ${SUDO} 
+	then 
+		echo "tar file extracted succesfully on ${SERVER}" >> ${LOGFILE} 
+	else 
+		echo "${bold}ERROR${none} extracting tar file on ${SERVER}" >> ${LOGFILE} 
+		errors_in_log ${LOGFILE} 
+		exit 1
+	fi
 done
 
-#if delete_tar_file; then echo "tar file has been deleted" >> ${LOGFILE}; else "Error deleting tar file" >> ${LOGFILE}; fi
+#esborra 
 ${SUDO} rm /tmp/sudoers_file.tar
+
