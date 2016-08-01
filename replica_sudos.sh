@@ -75,7 +75,7 @@ function extract_tar () {
 ${SUDO} /bin/tar -xPvf /tmp/sudoers_file.tar 
 if [[ $? -eq 0 ]]; then return 0; else return 1;fi
 ${SUDO} /bin/rm /tmp/sudoers_file.tar
-sudo -l -U rcarbone
+sudo -l
 if [[ $? -eq 0 ]]; then return 0; else return 1;fi
 }
 
